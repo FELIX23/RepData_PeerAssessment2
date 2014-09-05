@@ -1,0 +1,415 @@
+---
+title: "Reproducible Research: Peer Assessment 2"
+author: Felix Rodriguez
+output: 
+  html_document:
+    keep_md: true
+---
+##  Influence of major storms and major weather events in the United States Economy & Population
+
+### Synopsis  
+
+This report is aimed at showing the influence of major weather and storm event in the United Stated Economy and Populition, by analysing the
+damage caused by these event in the population (Fatalities and Injuries) as well as on the Economy (Property Damages and Crops Damages) reflected the U.S. National Oceanic and Atmospheric Administration's (NOAA) from 1950 - 2011. Although the study includes events pertaining to the last 50 years, only event dating back as far as the 1990 has been considered, as the accuracy of data heavily varies across years, with more accurate years for almost the last 20 years.  
+
+
+### Basic settings
+
+```r
+echo = TRUE  # Always make code visible
+options(scipen = 1)  # Turn off scientific notations for numbers
+library(ggplot2)
+library(R.utils)
+library(gridExtra)
+```
+
+### Loading and preprocessing the data
+Downloading data from U.S. National Oceanic and Atmospheric Administration's (NOAA) from 1950 - 2011 and reading CSV file.
+
+```r
+if (!file.exists("repdata-data-StormData.csv")){
+
+  if (file.exists("repdata-data-StormData.csv.bz2")) {
+  
+      bunzip2("repdata-data-StormData.csv.bz2", overwrite=T, remove=F)
+  
+  }else {
+  
+      download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2",
+                    destfile = "repdata-data-StormData.csv.bz2")
+      bunzip2("repdata-data-StormData.csv.bz2", overwrite=T, remove=F)
+  
+  }
+}
+
+Data = read.csv("repdata-data-StormData.csv")
+```
+
+### Data Processing
+
+The level of accuracy of the database varies over the years, with more accurate information, more events recorded, in the last years. Aiming at 
+considering all the events equally, the database is checked and the number of events per year is represented, as a basis to exclude several years 
+from the analysis,
+
+```r
+Data = data.frame(Data, as.numeric(format(as.Date(Data$BGN_DATE, format = "%m/%d/%Y %H:%M:%S"),"%Y")))
+names(Data) = c(colnames(Data)[1:length(colnames(Data))-1],"Year")
+
+EventperYear = as.data.frame(table(Data$Year))
+```
+As it could be seen in the following figure, the number of events recorded greatly varies over the time, with a higher number of events recorder from the 90s. Therefore,we considere only the events dating back as far as 1994, neglecting those ocurred before.  
+
+```r
+ggplot(EventperYear, aes(Var1, Freq)) + geom_bar(stat = "identity", colour = "red",fill = "steelblue", width = 0.2) + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + labs(title = "Histogram of Events per Year",x = "Year", y = "Total number of Events per Year")
+```
+
+![plot of chunk unnamed-chunk-4](figure/unnamed-chunk-4.png) 
+Filtering data
+
+```r
+DataFiltered <- Data[Data$Year >= 1994, ]
+```
+
+#### Efects on human lifes
+
+To evaluate the effects on human lifes, we decide to consider the variables: Fatalities and Injuries from the database.
+
+```r
+names(DataFiltered)
+```
+
+```
+##  [1] "STATE__"    "BGN_DATE"   "BGN_TIME"   "TIME_ZONE"  "COUNTY"    
+##  [6] "COUNTYNAME" "STATE"      "EVTYPE"     "BGN_RANGE"  "BGN_AZI"   
+## [11] "BGN_LOCATI" "END_DATE"   "END_TIME"   "COUNTY_END" "COUNTYENDN"
+## [16] "END_RANGE"  "END_AZI"    "END_LOCATI" "LENGTH"     "WIDTH"     
+## [21] "F"          "MAG"        "FATALITIES" "INJURIES"   "PROPDMG"   
+## [26] "PROPDMGEXP" "CROPDMG"    "CROPDMGEXP" "WFO"        "STATEOFFIC"
+## [31] "ZONENAMES"  "LATITUDE"   "LONGITUDE"  "LATITUDE_E" "LONGITUDE_"
+## [36] "REMARKS"    "REFNUM"     "Year"
+```
+Once data filtered, we proced to evaluate the number of Fatalities and Injuries (Effects on populations) per event.
+
+```r
+FatalitiesperEvent = aggregate(FATALITIES ~ EVTYPE, data = DataFiltered , FUN = sum)
+InjuriesperEvent = aggregate(INJURIES ~ EVTYPE, data = DataFiltered , FUN = sum)
+```
+The following tables (upper section) show the tables summaraizing the effect of events on populations
+
+```r
+head(FatalitiesperEvent)
+```
+
+```
+##                  EVTYPE FATALITIES
+## 1    HIGH SURF ADVISORY          0
+## 2         COASTAL FLOOD          0
+## 3           FLASH FLOOD          0
+## 4             LIGHTNING          0
+## 5             TSTM WIND          0
+## 6       TSTM WIND (G45)          0
+```
+
+```r
+head(InjuriesperEvent)
+```
+
+```
+##                  EVTYPE INJURIES
+## 1    HIGH SURF ADVISORY        0
+## 2         COASTAL FLOOD        0
+## 3           FLASH FLOOD        0
+## 4             LIGHTNING        0
+## 5             TSTM WIND        0
+## 6       TSTM WIND (G45)        0
+```
+
+With the above seen tables, we consider the highest 20 cases, i.e. the 20 events that cause more havoc.
+
+```r
+FatalitiesperEvent = FatalitiesperEvent[with(FatalitiesperEvent, order(FATALITIES)), ]
+InjuriesperEvent = InjuriesperEvent[with(InjuriesperEvent, order(INJURIES)), ]
+
+MainFatalities = FatalitiesperEvent[(dim(FatalitiesperEvent)[1]-20):dim(FatalitiesperEvent)[1],]
+MainInjuries = InjuriesperEvent[(dim(InjuriesperEvent)[1]-20):dim(InjuriesperEvent)[1],]
+
+MainFatalities$EVTYPE = factor(MainFatalities$EVTYPE)
+MainInjuries$EVTYPE = factor(MainInjuries$EVTYPE)
+
+MainFatalities$EVTYPE <- factor(MainFatalities$EVTYPE, levels = MainFatalities$EVTYPE[order(MainFatalities$FATALITIES)])
+MainInjuries$EVTYPE <- factor(MainInjuries$EVTYPE, levels = MainInjuries$EVTYPE[order(MainInjuries$INJURIES)])
+```
+
+The following tables show the major events with their consuquences, in terms of human lives.
+
+```r
+tail(MainFatalities)
+```
+
+```
+##             EVTYPE FATALITIES
+## 160          FLOOD        450
+## 437      LIGHTNING        794
+## 260           HEAT        930
+## 145    FLASH FLOOD        951
+## 785        TORNADO       1593
+## 122 EXCESSIVE HEAT       1903
+```
+
+```r
+tail(MainInjuries)
+```
+
+```
+##             EVTYPE INJURIES
+## 260           HEAT     2095
+## 806      TSTM WIND     3631
+## 437      LIGHTNING     5116
+## 122 EXCESSIVE HEAT     6525
+## 160          FLOOD     6778
+## 785        TORNADO    22571
+```
+
+#### Efects on Economy
+
+To evaluate the effects on economy, we decide to consider the variables: Property Damages  and Crop Damages from the database.
+
+```r
+names(DataFiltered)
+```
+
+```
+##  [1] "STATE__"    "BGN_DATE"   "BGN_TIME"   "TIME_ZONE"  "COUNTY"    
+##  [6] "COUNTYNAME" "STATE"      "EVTYPE"     "BGN_RANGE"  "BGN_AZI"   
+## [11] "BGN_LOCATI" "END_DATE"   "END_TIME"   "COUNTY_END" "COUNTYENDN"
+## [16] "END_RANGE"  "END_AZI"    "END_LOCATI" "LENGTH"     "WIDTH"     
+## [21] "F"          "MAG"        "FATALITIES" "INJURIES"   "PROPDMG"   
+## [26] "PROPDMGEXP" "CROPDMG"    "CROPDMGEXP" "WFO"        "STATEOFFIC"
+## [31] "ZONENAMES"  "LATITUDE"   "LONGITUDE"  "LATITUDE_E" "LONGITUDE_"
+## [36] "REMARKS"    "REFNUM"     "Year"
+```
+
+Once data filtered, we proced to evaluate the number of Fatalities and Injuries (Effects on populations) per event. Getting a view of the 
+
+```r
+NewDataFiltered = data.frame(DataFiltered, rep(0,dim(DataFiltered)[1]),rep(0,dim(DataFiltered)[1])) 
+names(NewDataFiltered) = c(names(DataFiltered), "PropertyDamages","CropDamages")
+```
+
+Numeric arranges to obtain the damages from the data. Including damage value with indexes reflecting in other column.
+
+```r
+NewDataFiltered$PROPDMGEXP = toupper(NewDataFiltered$PROPDMGEXP)
+NewDataFiltered$CROPDMGEXP = toupper(NewDataFiltered$CROPDMGEXP)
+
+NewDataFiltered$PROPDMGEXP[NewDataFiltered$PROPDMGEXP == "B" ] = 1000000000
+NewDataFiltered$PROPDMGEXP[NewDataFiltered$PROPDMGEXP == "M" ] = 1000000
+NewDataFiltered$PROPDMGEXP[NewDataFiltered$PROPDMGEXP == "K" ] = 1000
+NewDataFiltered$PROPDMGEXP[NewDataFiltered$PROPDMGEXP == "H" ] = 100
+NewDataFiltered$CROPDMGEXP[NewDataFiltered$CROPDMGEXP == "B" ] = 1000000000
+NewDataFiltered$CROPDMGEXP[NewDataFiltered$CROPDMGEXP == "M" ] = 1000000
+NewDataFiltered$CROPDMGEXP[NewDataFiltered$CROPDMGEXP == "K" ] = 1000
+NewDataFiltered$CROPDMGEXP[NewDataFiltered$CROPDMGEXP == "H" ] = 100
+NewDataFiltered$PROPDMGEXP[NewDataFiltered$PROPDMGEXP ==""] = 1
+NewDataFiltered$CROPDMGEXP[NewDataFiltered$CROPDMGEXP ==""] = 1
+
+NewDataFiltered$PropertyDamages = as.numeric(NewDataFiltered$PROPDMGEXP) * NewDataFiltered$PROPDMG
+```
+
+```
+## Warning: NAs introduced by coercion
+```
+
+```r
+NewDataFiltered$CropDamages = as.numeric(NewDataFiltered$CROPDMGEXP) * NewDataFiltered$CROPDMG
+```
+
+```
+## Warning: NAs introduced by coercion
+```
+
+Getting Property Damages and Crop Damages per event
+
+```r
+PropertyDamagesperEvent = aggregate(PropertyDamages ~ EVTYPE, data = NewDataFiltered , FUN = sum)
+CropDamagesperEvent = aggregate(CropDamages ~ EVTYPE, data = NewDataFiltered , FUN = sum)
+```
+The following tables (upper section) show the tables summaraizing the effect of events on the economy
+
+```r
+tail(PropertyDamagesperEvent)
+```
+
+```
+##                 EVTYPE PropertyDamages
+## 923 WINTER WEATHER/MIX         6372000
+## 924        WINTERY MIX               0
+## 925         Wintry mix               0
+## 926         Wintry Mix            2500
+## 927         WINTRY MIX           10000
+## 928                WND               0
+```
+
+```r
+tail(CropDamagesperEvent)
+```
+
+```
+##                 EVTYPE CropDamages
+## 924 WINTER WEATHER/MIX           0
+## 925        WINTERY MIX           0
+## 926         Wintry mix           0
+## 927         Wintry Mix           0
+## 928         WINTRY MIX           0
+## 929                WND           0
+```
+
+Sorting out the database and considering only the 20 events responsible of the most severe damanges on crops and properties
+
+```r
+PropertyDamagesperEvent = PropertyDamagesperEvent[with(PropertyDamagesperEvent, order(PropertyDamages)), ]
+CropDamagesperEvent = CropDamagesperEvent[with(CropDamagesperEvent, order(CropDamages)), ]
+
+MainPropDamages = PropertyDamagesperEvent[(dim(PropertyDamagesperEvent)[1]-20):dim(PropertyDamagesperEvent)[1],]
+MainCropDamages = CropDamagesperEvent[(dim(CropDamagesperEvent)[1]-20):dim(CropDamagesperEvent)[1],]
+
+MainPropDamages$EVTYPE = factor(MainPropDamages$EVTYPE)
+MainCropDamages$EVTYPE = factor(MainCropDamages$EVTYPE)
+
+MainPropDamages$EVTYPE <- factor(MainPropDamages$EVTYPE, levels = MainPropDamages$EVTYPE[order(MainPropDamages$PropertyDamages)])
+MainCropDamages$EVTYPE <- factor(MainCropDamages$EVTYPE, levels = MainCropDamages$EVTYPE[order(MainCropDamages$CropDamages)])
+```
+The following tables show the major events with their consuquences, in terms of human lives.
+
+```r
+tail(MainPropDamages)
+```
+
+```
+##                EVTYPE PropertyDamages
+## 228              HAIL       1.534e+10
+## 144       FLASH FLOOD       1.572e+10
+## 783           TORNADO       2.562e+10
+## 622       STORM SURGE       4.319e+10
+## 384 HURRICANE/TYPHOON       6.931e+10
+## 159             FLOOD       1.442e+11
+```
+
+```r
+tail(MainCropDamages)
+```
+
+```
+##                EVTYPE CropDamages
+## 385 HURRICANE/TYPHOON   2.608e+09
+## 377         HURRICANE   2.741e+09
+## 229              HAIL   2.983e+09
+## 400         ICE STORM   5.022e+09
+## 159             FLOOD   5.507e+09
+## 90            DROUGHT   1.392e+10
+```
+
+
+### Results
+
+
+#### Impact on Public Health
+
+
+Finally, we depict the plot representing the effects of the 20 most severe storms of weather event on populations (Injuries and Fatalities)
+
+```r
+P = ggplot(MainFatalities, aes(EVTYPE, FATALITIES)) + geom_bar(stat = "identity", colour = "red",fill = "steelblue", width = 0.2) + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + labs(title = "FATALITIES per Mayor Events",x = "Event", y = "Total number of Fatalities")
+G = ggplot(MainInjuries, aes(EVTYPE,INJURIES)) + geom_bar(stat = "identity", colour = "red",fill = "steelblue", width = 0.2) + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + labs(title = "INJURIES per Mayor Events",x = "Event", y = "Total number of Injuries")
+```
+Graphical Representation
+
+```r
+grid.arrange(P, G, ncol = 2)
+```
+
+![plot of chunk unnamed-chunk-19](figure/unnamed-chunk-19.png) 
+
+Based on the histograms, it can be said that Excessive Heat and Tornados are the main causes of Fatalities, while Tornados caused the highest number of injuries in the United States, from 1994 to 2011.
+
+The exact influence on populations of these events can be seen in the table below.
+
+```r
+tail(PropertyDamagesperEvent)
+```
+
+```
+##                EVTYPE PropertyDamages
+## 228              HAIL       1.534e+10
+## 144       FLASH FLOOD       1.572e+10
+## 783           TORNADO       2.562e+10
+## 622       STORM SURGE       4.319e+10
+## 384 HURRICANE/TYPHOON       6.931e+10
+## 159             FLOOD       1.442e+11
+```
+
+```r
+tail(CropDamagesperEvent)
+```
+
+```
+##                EVTYPE CropDamages
+## 385 HURRICANE/TYPHOON   2.608e+09
+## 377         HURRICANE   2.741e+09
+## 229              HAIL   2.983e+09
+## 400         ICE STORM   5.022e+09
+## 159             FLOOD   5.507e+09
+## 90            DROUGHT   1.392e+10
+```
+#### Impact on the Economy
+
+Finally, we depict the plot representing the effects of the 20 most severe storms of weather event on populations (Injuries and Fatalities)
+
+```r
+H = ggplot(MainPropDamages, aes(EVTYPE, PropertyDamages)) + geom_bar(stat = "identity", colour = "red",fill = "steelblue", width = 0.2) + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + labs(title = "Property Damages per Mayor Events",x = "Event", y = "Total Property Damages")
+I = ggplot(MainCropDamages, aes(EVTYPE,CropDamages)) + geom_bar(stat = "identity", colour = "red",fill = "steelblue", width = 0.2) + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + labs(title = "Crop Damages per Mayor Events",x = "Event", y = "Total CropDamages")
+```
+Graphical Representation
+
+```r
+grid.arrange(H, I, ncol = 2)
+```
+
+![plot of chunk unnamed-chunk-22](figure/unnamed-chunk-22.png) 
+
+Based on the histograms, it can be said that Flood and Hurricanes are the main causes of Property Damages, while Droughts caused the highest number of injuries in the United States, from 1994 to 2011.
+
+The exact economic influence of these events can be seen in the table below.
+
+```r
+tail(PropertyDamagesperEvent)
+```
+
+```
+##                EVTYPE PropertyDamages
+## 228              HAIL       1.534e+10
+## 144       FLASH FLOOD       1.572e+10
+## 783           TORNADO       2.562e+10
+## 622       STORM SURGE       4.319e+10
+## 384 HURRICANE/TYPHOON       6.931e+10
+## 159             FLOOD       1.442e+11
+```
+
+```r
+tail(CropDamagesperEvent)
+```
+
+```
+##                EVTYPE CropDamages
+## 385 HURRICANE/TYPHOON   2.608e+09
+## 377         HURRICANE   2.741e+09
+## 229              HAIL   2.983e+09
+## 400         ICE STORM   5.022e+09
+## 159             FLOOD   5.507e+09
+## 90            DROUGHT   1.392e+10
+```
+
+### Conclusions
+
+This study shows the influence of the major weather events on the american population and economy, according to the events recorded in the last 20 years. Public policies pertaining to the minorization of the influence of  weather events can take this results into account to prioritaze scarce public resources and spearhead those in the event that show a major causal influence on both economy and populations.
+
